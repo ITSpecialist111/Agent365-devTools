@@ -17,6 +17,8 @@ namespace Microsoft.Agents.A365.DevTools.Cli.Commands;
 /// </summary>
 public class PublishCommand
 {
+    private const int ManifestShortNameMaxLength = 30;
+
     /// <summary>
     /// Gets the project directory from config, with fallback to current directory.
     /// </summary>
@@ -184,6 +186,12 @@ public class PublishCommand
                     return;
                 }
 
+                if (!ValidateManifestShortName(displayName, logger))
+                {
+                    context.ExitCode = 1;
+                    return;
+                }
+
                 var baseDir = GetProjectDirectory(config, logger);
                 var manifestDir = Path.Combine(baseDir, "manifest");
                 var manifestPath = Path.Combine(manifestDir, "manifest.json");
@@ -240,8 +248,6 @@ public class PublishCommand
 
                 if (string.IsNullOrWhiteSpace(displayName))
                     logger.LogWarning("  name.short           - not set; edit manifest.json to provide a short name (30 chars max) before packaging");
-                else if (displayName.Length > 30)
-                    logger.LogWarning("  name.short           - EXCEEDS 30 chars ({Length}), currently: \"{Name}\" -- shorten before packaging", displayName.Length, displayName);
                 else
                     logger.LogInformation("  name.short           - 30 chars max, currently: \"{Name}\"", displayName);
 
@@ -295,6 +301,19 @@ public class PublishCommand
         });
 
         return command;
+    }
+
+    private static bool ValidateManifestShortName(string? displayName, ILogger logger)
+    {
+        if (string.IsNullOrWhiteSpace(displayName) || displayName.Length <= ManifestShortNameMaxLength)
+            return true;
+
+        logger.LogError(
+            "agentBlueprintDisplayName must be {MaxLength} characters or fewer because it is written to manifest.json name.short (current: {Length}).",
+            ManifestShortNameMaxLength,
+            displayName.Length);
+        logger.LogError("Update a365.config.json and re-run 'a365 publish'.");
+        return false;
     }
 
     private static void PrintNonDwDryRunPlan(Models.Agent365Config config, ILogger logger)

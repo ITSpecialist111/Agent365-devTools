@@ -32,6 +32,7 @@ There is reference documentation for each command.
 | [develop-mcp package-mcp-server](https://learn.microsoft.com/microsoft-agent-365/developer/reference/cli/develop-mcp#develop-mcp-package-mcp-server) | Generate MCP server package for submission on Microsoft admin center. |
 | [publish](https://learn.microsoft.com/microsoft-agent-365/developer/reference/cli/publish) | Update manifest.json ID values and publish the package. Configure federated identity and app role assignments. |
 | [query-entra](https://learn.microsoft.com/microsoft-agent-365/developer/reference/cli/query-entra) | Query Microsoft Entra ID for agent information including scopes, permissions, and consent status. |
+| `query-entra blueprints` | List Agent Identity Blueprints in the tenant to identify orphaned dev/test blueprints. |
 | [query-entra blueprint-scopes](https://learn.microsoft.com/microsoft-agent-365/developer/reference/cli/query-entra#query-entra-blueprint-scopes) | List configured scopes and consent status for the agent blueprint. |
 | [query-entra instance-scopes](https://learn.microsoft.com/microsoft-agent-365/developer/reference/cli/query-entra#query-entra-instance-scopes) | List configured scopes and consent status for the agent instance. |
 | [setup](https://learn.microsoft.com/microsoft-agent-365/developer/reference/cli/setup) | Set up your Agent 365 environment with granular control over each step. |
@@ -43,7 +44,9 @@ There is reference documentation for each command.
 | [setup permissions bot](https://learn.microsoft.com/microsoft-agent-365/developer/reference/cli/setup#setup-permissions-bot) | Configure Messaging Bot API OAuth2 grants and inheritable permissions. |
 | [setup permissions copilotstudio](https://learn.microsoft.com/microsoft-agent-365/developer/reference/cli/setup#setup-permissions-copilotstudio) | Configures OAuth2 permission grants and inheritable permissions for the agent blueprint to invoke Copilot Studio copilots via the Power Platform API. |
 | [setup permissions custom](https://learn.microsoft.com/microsoft-agent-365/developer/reference/cli/setup#setup-permissions-custom) | Applies custom API permissions to your agent blueprint that go beyond the standard permissions required for agent operation. |
-| [setup all](https://learn.microsoft.com/microsoft-agent-365/developer/reference/cli/setup#setup-all) | Perform all setup steps to set up your Agent 365 environment |
+| [setup all](https://learn.microsoft.com/microsoft-agent-365/developer/reference/cli/setup#setup-all) | Perform all setup steps to set up your Agent 365 environment. Use `--m365` for M365 agents so the messaging endpoint is registered with MCP Platform. |
+
+For M365 agents, `setup blueprint` and `setup permissions` are granular steps only. They do not register the MCP Platform messaging endpoint; use `setup all --m365` or run `setup blueprint --endpoint-only --m365` after granular setup.
 
 ## Documentation policy
 

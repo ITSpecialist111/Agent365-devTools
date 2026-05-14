@@ -143,7 +143,7 @@ public class PublishCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task PublishCommand_WithDisplayNameExceeding30Chars_LogsWarning()
+    public async Task PublishCommand_WithDisplayNameExceeding30Chars_FailsBeforeWritingManifest()
     {
         var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         var manifestDir = Path.Combine(tempDir, "manifest");
@@ -167,13 +167,16 @@ public class PublishCommandTests : IDisposable
 
             var exitCode = await root.InvokeAsync("publish");
 
-            exitCode.Should().Be(0);
+            exitCode.Should().Be(1, "name.short has a hard 30-character Microsoft 365 manifest limit and publish must fail before producing an invalid package");
             _logger.Received().Log(
-                LogLevel.Warning,
+                LogLevel.Error,
                 Arg.Any<EventId>(),
-                Arg.Is<object>(o => o.ToString()!.Contains("EXCEEDS 30 chars")),
+                Arg.Is<object>(o => o.ToString()!.Contains("agentBlueprintDisplayName must be 30 characters or fewer")),
                 Arg.Any<Exception>(),
                 Arg.Any<Func<object, Exception?, string>>());
+            File.Exists(Path.Combine(manifestDir, "manifest.zip")).Should().BeFalse("publish must not create a package that Microsoft 365 Admin Center will reject");
+            var manifestText = await File.ReadAllTextAsync(Path.Combine(manifestDir, "manifest.json"));
+            manifestText.Should().Contain("old-id", "publish must validate name.short before mutating manifest.json");
         }
         finally
         {

@@ -52,7 +52,9 @@ internal static class PermissionsSubcommand
     {
         var permissionsCommand = new Command("permissions",
             "Configure OAuth2 permission grants and inheritable permissions\n" +
-            "Minimum required permissions: Global Administrator\n");
+            "Minimum required permissions: Global Administrator\n" +
+            "Messaging endpoint registration is not included. For M365 agents, use 'a365 setup all --m365' " +
+            "or run 'a365 setup blueprint --endpoint-only --m365' after granular setup.\n");
 
         // Add subcommands
         permissionsCommand.AddCommand(CreateMcpSubcommand(logger, authValidator, configService, executor, graphApiService, blueprintService, confirmationProvider, resolver));

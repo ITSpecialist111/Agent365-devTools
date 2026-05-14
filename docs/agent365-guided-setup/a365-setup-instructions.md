@@ -633,6 +633,30 @@ If any step results in an error, stop and analyze the error message carefully. F
 - Most `a365` commands are idempotent — safe to re-run after fixing an issue.
 - Use `a365 cleanup azure` or `a365 cleanup blueprint` only as a last resort to remove created resources.
 
+### Manifest upload fails with "invalid manifest"
+
+Microsoft 365 Admin Center rejects packages when `manifest.json` has `name.short` longer than 30 characters. `a365 publish` writes `agentBlueprintDisplayName` to `name.short`, so keep `agentBlueprintDisplayName` at 30 characters or fewer in `a365.config.json` before publishing.
+
+If `a365 publish` fails with a message like `agentBlueprintDisplayName must be 30 characters or fewer`, shorten the value in `a365.config.json` and rerun `a365 publish`.
+
+### Generic permission error during setup all
+
+If `a365 setup all --m365` fails with a generic permission or consent-looking error after repeated dev/test setup cycles, check whether the tenant has reached its Frontier AI Teammate blueprint slot limit before continuing to troubleshoot RBAC.
+
+List existing Agent Identity Blueprints:
+
+```bash
+a365 query-entra blueprints
+```
+
+If the list includes orphaned blueprints from old dev/test runs, remove them with:
+
+```bash
+a365 cleanup blueprint --agent-name "<orphan name>"
+```
+
+Back up `a365.generated.config.json` before cleanup when working from a project directory that still contains active generated state.
+
 ### Windows Account Manager (WAM) authentication
 
 **What it is:** On Windows, the Agent 365 CLI uses the Windows Account Manager (WAM) broker instead of a browser for interactive Microsoft Graph authentication. WAM opens a native OS dialog — not a browser tab — so it is invisible to terminal output.

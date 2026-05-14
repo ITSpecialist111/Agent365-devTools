@@ -26,8 +26,110 @@ public class QueryEntraCommand
         var command = new Command("query-entra", "Query Microsoft Entra ID for agent information (scopes, permissions, consent status)");
 
         // Add subcommands for different query types
+        command.AddCommand(CreateBlueprintsSubcommand(logger, executor, graphApiService));
         command.AddCommand(CreateBlueprintScopesSubcommand(logger, configService, executor, graphApiService, blueprintService, resolver));
         command.AddCommand(CreateInstanceScopesSubcommand(logger, configService, executor, resolver));
+
+        return command;
+    }
+
+    /// <summary>
+    /// Create blueprints subcommand to list Agent Identity Blueprints in the tenant.
+    /// </summary>
+    private static Command CreateBlueprintsSubcommand(
+        ILogger<QueryEntraCommand> logger,
+        CommandExecutor executor,
+        GraphApiService graphApiService)
+    {
+        var command = new Command("blueprints", "List Agent Identity Blueprints in the tenant");
+        command.AddAlias("list-blueprints");
+
+        var tenantIdOption = new Option<string?>(
+            "--tenant-id",
+            description: "Azure AD tenant ID. Defaults to the active az CLI tenant.");
+
+        var verboseOption = new Option<bool>(
+            ["--verbose", "-v"],
+            description: "Enable verbose logging");
+
+        command.AddOption(tenantIdOption);
+        command.AddOption(verboseOption);
+
+        command.SetHandler(async (System.CommandLine.Invocation.InvocationContext context) =>
+        {
+            var tenantIdFlag = context.ParseResult.GetValueForOption(tenantIdOption);
+            _ = context.ParseResult.GetValueForOption(verboseOption);
+            var ct = context.GetCancellationToken();
+
+            try
+            {
+                var tenantId = await ResolveTenantIdForQueryAsync(tenantIdFlag, executor, logger, ct);
+                if (string.IsNullOrWhiteSpace(tenantId))
+                {
+                    context.ExitCode = 1;
+                    return;
+                }
+
+                logger.LogInformation("Querying Entra ID for Agent Identity Blueprints...");
+                logger.LogInformation("Tenant ID: {TenantId}", tenantId);
+                logger.LogInformation("");
+
+                using var blueprintsDoc = await graphApiService.GraphGetAsync(
+                    tenantId,
+                    "/beta/applications/microsoft.graph.agentIdentityBlueprint?$select=id,appId,displayName,createdDateTime&$top=999",
+                    ct,
+                    scopes: [AuthenticationConstants.AgentIdentityBlueprintReadWriteAllScope]);
+
+                if (blueprintsDoc is null)
+                {
+                    logger.LogError("Failed to query Agent Identity Blueprints from Microsoft Graph.");
+                    logger.LogInformation("Ensure your client app has AgentIdentityBlueprint.ReadWrite.All consented, then retry.");
+                    context.ExitCode = 1;
+                    return;
+                }
+
+                if (!blueprintsDoc.RootElement.TryGetProperty("value", out var valueElement) ||
+                    valueElement.ValueKind != JsonValueKind.Array)
+                {
+                    logger.LogInformation("No Agent Identity Blueprints found.");
+                    return;
+                }
+
+                var blueprints = valueElement.EnumerateArray().ToList();
+                if (blueprints.Count == 0)
+                {
+                    logger.LogInformation("No Agent Identity Blueprints found.");
+                    return;
+                }
+
+                logger.LogInformation("Agent Identity Blueprints:");
+                logger.LogInformation("==========================");
+
+                foreach (var blueprint in blueprints)
+                {
+                    var displayName = GetStringProperty(blueprint, "displayName") ?? "(unnamed)";
+                    var appId = GetStringProperty(blueprint, "appId") ?? "unknown";
+                    var objectId = GetStringProperty(blueprint, "id") ?? "unknown";
+                    var createdDateTime = GetStringProperty(blueprint, "createdDateTime");
+
+                    logger.LogInformation("- {DisplayName}", displayName);
+                    logger.LogInformation("  App ID: {AppId}", appId);
+                    logger.LogInformation("  Object ID: {ObjectId}", objectId);
+                    if (!string.IsNullOrWhiteSpace(createdDateTime))
+                        logger.LogInformation("  Created: {CreatedDateTime}", createdDateTime);
+                    logger.LogInformation("");
+                }
+
+                logger.LogInformation("Total blueprints: {Count}", blueprints.Count);
+                logger.LogInformation("");
+                logger.LogInformation("If setup fails with a generic permission error after repeated dev/test runs, verify Frontier AI Teammate blueprint slot usage and remove orphaned blueprints with 'a365 cleanup blueprint --agent-name <name>'.");
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to query Agent Identity Blueprints: {Message}", ex.Message);
+                context.ExitCode = 1;
+            }
+        });
 
         return command;
     }
@@ -447,6 +549,40 @@ public class QueryEntraCommand
             logger.LogError(ex, "Failed to load configuration from {Path}: {Message}", config.FullName, ex.Message);
             return null;
         }
+    }
+
+    private static async Task<string?> ResolveTenantIdForQueryAsync(
+        string? tenantIdFlag,
+        CommandExecutor executor,
+        ILogger<QueryEntraCommand> logger,
+        CancellationToken cancellationToken)
+    {
+        if (!string.IsNullOrWhiteSpace(tenantIdFlag))
+            return tenantIdFlag.Trim();
+
+        var accountResult = await executor.ExecuteAsync(
+            "az",
+            "account show --query tenantId -o tsv",
+            suppressErrorLogging: true,
+            cancellationToken: cancellationToken);
+
+        if (accountResult.Success)
+        {
+            var tenantId = accountResult.StandardOutput.Trim();
+            if (!string.IsNullOrWhiteSpace(tenantId))
+                return tenantId;
+        }
+
+        logger.LogError("Tenant ID not found. Pass --tenant-id or run 'az login --allow-no-subscriptions' and retry.");
+        return null;
+    }
+
+    private static string? GetStringProperty(JsonElement element, string propertyName)
+    {
+        if (!element.TryGetProperty(propertyName, out var property) || property.ValueKind == JsonValueKind.Null)
+            return null;
+
+        return property.GetString();
     }
 
     /// <summary>

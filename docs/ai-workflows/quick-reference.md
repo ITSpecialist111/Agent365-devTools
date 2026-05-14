@@ -145,7 +145,8 @@ a365 setup infrastructure           # Create Azure resources
 a365 setup blueprint                # Create agent blueprint
 a365 setup permissions mcp          # Configure MCP permissions
 a365 setup permissions bot          # Configure bot permissions
-a365 setup all                      # All steps at once
+a365 setup blueprint --endpoint-only --m365 # Register M365 messaging endpoint after granular setup
+a365 setup all --m365               # All M365 setup steps at once, including endpoint registration
 a365 setup all --skip-infrastructure # Skip infrastructure
 ```
 

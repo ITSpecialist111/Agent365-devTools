@@ -67,6 +67,8 @@ a365 setup infrastructure  # Provision Azure only
 a365 setup permissions     # Configure permissions only
 ```
 
+The individual `setup blueprint` and `setup permissions` commands do not register the MCP Platform messaging endpoint. For a fully functional M365 agent, run `a365 setup all --m365`, or run `a365 setup blueprint --endpoint-only --m365` after the granular setup steps complete.
+
 ### Authentication mode (`--authmode`)
 
 The `--authmode` option controls how the agent identity service principal is granted permissions. It is available on `setup all` only.

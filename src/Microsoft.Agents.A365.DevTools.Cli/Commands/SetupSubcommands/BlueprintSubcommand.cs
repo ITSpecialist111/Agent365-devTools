@@ -126,7 +126,9 @@ internal static class BlueprintSubcommand
     {
         var command = new Command("blueprint",
             "Create agent blueprint (Entra ID application registration)\n" +
-            "Minimum required permissions: Agent ID Developer role\n");
+            "Minimum required permissions: Agent ID Developer role\n" +
+            "Messaging endpoint registration is not included in normal blueprint creation.\n" +
+            "For M365 agents, use 'a365 setup all --m365' or rerun with '--endpoint-only --m365'.\n");
 
         var agentNameOption = new Option<string?>(
             ["--agent-name", "-n"],
@@ -428,6 +430,44 @@ internal static class BlueprintSubcommand
             "Pass --m365 to opt in, or configure the endpoint manually in the Teams Developer Portal:",
             action);
         logger.LogInformation("  {Url}", Constants.ConfigConstants.TeamsDeveloperPortalConfigureEndpointUrl);
+    }
+
+    private static void LogBlueprintCreationFailure(
+        ILogger logger,
+        string? context,
+        System.Net.HttpStatusCode statusCode,
+        string errorContent)
+    {
+        if (string.IsNullOrWhiteSpace(context))
+            logger.LogError("Failed to create application: {Status} - {Error}", statusCode, errorContent);
+        else
+            logger.LogError("Failed to create application ({Context}): {Status} - {Error}", context, statusCode, errorContent);
+
+        if (!LooksLikeFrontierBlueprintCapacityError(errorContent))
+            return;
+
+        logger.LogError("Frontier AI Teammate blueprint slots may be exhausted for this tenant.");
+        logger.LogError("Run 'a365 query-entra blueprints' to list existing blueprints, then remove orphaned entries with 'a365 cleanup blueprint --agent-name <name>'.");
+    }
+
+    internal static bool LooksLikeFrontierBlueprintCapacityError(string? errorContent)
+    {
+        if (string.IsNullOrWhiteSpace(errorContent))
+            return false;
+
+        var normalized = errorContent.ToLowerInvariant();
+        var mentionsBlueprint =
+            normalized.Contains("agentidentityblueprint", StringComparison.Ordinal) ||
+            normalized.Contains("agent identity blueprint", StringComparison.Ordinal) ||
+            normalized.Contains("blueprint", StringComparison.Ordinal);
+        var mentionsCapacity =
+            normalized.Contains("slot", StringComparison.Ordinal) ||
+            normalized.Contains("license", StringComparison.Ordinal) ||
+            normalized.Contains("quota", StringComparison.Ordinal) ||
+            normalized.Contains("capacity", StringComparison.Ordinal) ||
+            normalized.Contains("limit", StringComparison.Ordinal);
+
+        return mentionsBlueprint && mentionsCapacity;
     }
 
     /// <summary>
@@ -1112,7 +1152,7 @@ internal static class BlueprintSubcommand
                             if (!appResponse.IsSuccessStatusCode)
                             {
                                 errorContent = await appResponse.Content.ReadAsStringAsync(ct);
-                                logger.LogError("Failed to create application (all fallbacks exhausted): {Status} - {Error}", appResponse.StatusCode, errorContent);
+                                LogBlueprintCreationFailure(logger, "all fallbacks exhausted", appResponse.StatusCode, errorContent);
                                 appResponse.Dispose();
                                 return (false, null, null, null, alreadyExisted: false, graphPermissionsConfigured: false, graphInheritablePermissionsFailed: false, graphInheritablePermissionsError: null, ficConfigured: false, ficError: null, adminConsentUrl: null);
                             }
@@ -1121,7 +1161,7 @@ internal static class BlueprintSubcommand
                         }
                         else
                         {
-                            logger.LogError("Failed to create application (fallback): {Status} - {Error}", appResponse.StatusCode, errorContent);
+                            LogBlueprintCreationFailure(logger, "fallback", appResponse.StatusCode, errorContent);
                             appResponse.Dispose();
                             return (false, null, null, null, alreadyExisted: false, graphPermissionsConfigured: false, graphInheritablePermissionsFailed: false, graphInheritablePermissionsError: null, ficConfigured: false, ficError: null, adminConsentUrl: null);
                         }
@@ -1129,7 +1169,7 @@ internal static class BlueprintSubcommand
                 }
                 else
                 {
-                    logger.LogError("Failed to create application: {Status} - {Error}", appResponse.StatusCode, errorContent);
+                    LogBlueprintCreationFailure(logger, null, appResponse.StatusCode, errorContent);
                     appResponse.Dispose();
                     return (false, null, null, null, alreadyExisted: false, graphPermissionsConfigured: false, graphInheritablePermissionsFailed: false, graphInheritablePermissionsError: null, ficConfigured: false, ficError: null, adminConsentUrl: null);
                 }

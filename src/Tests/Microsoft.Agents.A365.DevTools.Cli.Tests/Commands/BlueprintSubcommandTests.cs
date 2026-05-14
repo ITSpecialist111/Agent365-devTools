@@ -92,6 +92,17 @@ public class BlueprintSubcommandTests
         // Assert
         command.Description.Should().NotBeNullOrEmpty();
         command.Description.Should().Contain("agent blueprint");
+        command.Description.Should().Contain("Messaging endpoint registration", "standalone blueprint setup must warn M365 users that the endpoint is a separate step");
+    }
+
+    [Theory]
+    [InlineData("AgentIdentityBlueprint quota limit reached", true)]
+    [InlineData("Frontier blueprint license slots exhausted", true)]
+    [InlineData("Authorization_RequestDenied: insufficient privileges", false)]
+    public void LooksLikeFrontierBlueprintCapacityError_DetectsCapacityErrors(string errorContent, bool expected)
+    {
+        BlueprintSubcommand.LooksLikeFrontierBlueprintCapacityError(errorContent)
+            .Should().Be(expected, "capacity-looking blueprint creation failures should produce cleanup guidance without masking ordinary permission errors");
     }
 
     [Fact]

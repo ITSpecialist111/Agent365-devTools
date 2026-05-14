@@ -101,6 +101,7 @@ public class PermissionsSubcommandTests
 
         // Assert
         command.Description.Should().Contain("Global Administrator");
+        command.Description.Should().Contain("Messaging endpoint registration", "standalone permission setup must warn M365 users that endpoint registration is a separate step");
     }
 
     [Fact]
